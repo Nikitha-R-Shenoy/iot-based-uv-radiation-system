@@ -56,11 +56,6 @@ export default function App({ database }) {
             if (data) {
                 const historicalReadings = Object.values(data);
                 
-                // DEBUG: Log raw Firebase data structure (first item only)
-                if (historicalReadings.length > 0) {
-                    console.log('📊 Raw Firebase data sample:', historicalReadings[0]);
-                }
-                
                 // CRITICAL FIX: Map the data to match component expectations
                 // Handle both flat structure and nested sensors structure from Firebase
                 const mappedReadings = historicalReadings.map(item => {
@@ -70,7 +65,7 @@ export default function App({ database }) {
                     const emf = item.EMF || item.EMF_mT || item.emf_mT || item.emf || (item.sensors && item.sensors.emf_mT) || 0;
                     const status = item.status || item.classification || 'UNKNOWN';
                     
-                    const mapped = {
+                    return {
                         // Timestamp in seconds (components will handle conversion if needed)
                         timestamp: item.timestamp || Date.now() / 1000,
                         // Use the keys that components expect
@@ -80,20 +75,7 @@ export default function App({ database }) {
                         classification: status.toLowerCase(),
                         status: status,
                     };
-                    
-                    // DEBUG: Log mapped data if any field is 0 or missing
-                    if (gamma === 0 || uv === 0 || emf === 0) {
-                        console.warn('⚠️ Missing field detected:', { raw: item, mapped });
-                    }
-                    
-                    return mapped;
                 });
-                
-                // DEBUG: Log final mapped readings
-                console.log('✅ Mapped readings count:', mappedReadings.length);
-                if (mappedReadings.length > 0) {
-                    console.log('📈 First mapped reading:', mappedReadings[0]);
-                }
                 
                 // Reverse and set the final data
                 setReadings(mappedReadings.slice().reverse()); 
