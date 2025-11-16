@@ -21,23 +21,15 @@ export default function RealtimeChart({ readings = [] }) {
     const ts = typeof r.timestamp === 'number' ? (r.timestamp > 1e12 ? r.timestamp : r.timestamp * 1000) : r.timestamp;
     return new Date(ts).toLocaleTimeString();
   });
-  const gamma = latest.map(r => r.gamma_cpm || (r.sensors && r.sensors.gamma_cpm) || 0);
-  const uv = latest.map(r => r.uv_index || (r.sensors && r.sensors.uv_index) || 0);
-  const emf = latest.map(r => r.emf_mT || (r.sensors && r.sensors.emf_mT) || 0);
+  // Only show values received from Raspberry Pi: UV and Voltage
+  const uv = latest.map(r => r.uv_index || 0);
+  const voltage = latest.map(r => r.voltage || 0);
 
   const data = useMemo(() => ({
     labels,
     datasets: [
       { 
-        label: 'Gamma (CPM)', 
-        data: gamma, 
-        tension: 0.3, 
-        borderWidth: 2, 
-        fill: false,
-        borderColor: 'rgb(75, 192, 192)'
-      },
-      { 
-        label: 'UV Index', 
+        label: 'UV Intensity (mW/cm²)', 
         data: uv, 
         tension: 0.3, 
         borderWidth: 2, 
@@ -45,15 +37,15 @@ export default function RealtimeChart({ readings = [] }) {
         borderColor: 'rgb(255, 99, 132)'
       },
       { 
-        label: 'EMF (mT)', 
-        data: emf, 
+        label: 'Voltage', 
+        data: voltage, 
         tension: 0.3, 
         borderWidth: 2, 
         fill: false,
         borderColor: 'rgb(54, 162, 235)'
       }
     ]
-  }), [labels, gamma, uv, emf]);
+  }), [labels, uv, voltage]);
 
   return (
     <div>

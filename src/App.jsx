@@ -71,53 +71,29 @@ export default function App({ database }) {
                     console.log('📊 Raw data keys:', Object.keys(historicalReadings[0]));
                 }
                 
-                // CRITICAL FIX: Map the data to match component expectations
-                // Firebase structure: timestamp, uv_intensity_mw_cm2, voltage, gamma, EMF
+                // Map only the values received from Raspberry Pi: timestamp, uv_intensity_mw_cm2, voltage
                 const mappedReadings = historicalReadings.map(item => {
-                    // Extract sensor values - handle multiple field name variations
-                    // Gamma field variations
-                    const gamma = item.gamma || item.Gamma || item.gamma_cpm || 
-                                  (item.sensors && item.sensors.gamma_cpm) || 0;
+                    // UV Intensity from Raspberry Pi (uv_intensity_mw_cm2)
+                    const uv = item.uv_intensity_mw_cm2 || item.uv || item.UV || item.uv_index || 0;
                     
-                    // UV field - handle both uv_intensity_mw_cm2 (from image) and other variations
-                    const uv = item.uv || item.UV || item.uv_index || item.uv_intensity_mw_cm2 ||
-                              (item.sensors && item.sensors.uv_index) || 0;
-                    
-                    // EMF field variations
-                    const emf = item.EMF || item.EMF_mT || item.emf_mT || item.emf ||
-                               (item.sensors && item.sensors.emf_mT) || 0;
-                    
-                    // Status/classification field
-                    const status = item.status || item.classification || 'UNKNOWN';
+                    // Voltage from Raspberry Pi
+                    const voltage = item.voltage || 0;
                     
                     const mapped = {
                         // Timestamp in seconds (Firebase stores Unix timestamp)
                         timestamp: item.timestamp || Date.now() / 1000,
-                        // Use the keys that components expect
-                        gamma_cpm: gamma,
+                        // UV Intensity (mW/cm²) from Raspberry Pi
                         uv_index: uv,
-                        emf_mT: emf,
-                        classification: status.toLowerCase(),
-                        status: status,
-                        // Keep original data for debugging
-                        _raw: {
-                            voltage: item.voltage,
-                            uv_intensity_mw_cm2: item.uv_intensity_mw_cm2
-                        }
+                        // Voltage from Raspberry Pi
+                        voltage: voltage
                     };
                     
-                    // DEBUG: Log mapped data - UV should always be present from Raspberry Pi
+                    // DEBUG: Log if required fields are missing
                     if (uv === 0 || uv === null || uv === undefined) {
-                        console.warn('⚠️ UV field missing from Raspberry Pi:', { raw: item, mapped });
+                        console.warn('⚠️ UV intensity missing from Raspberry Pi:', { raw: item, mapped });
                     }
-                    // Gamma and EMF might not be sent yet - log info only
-                    if ((gamma === 0 || gamma === null || gamma === undefined) && 
-                        (item.gamma === undefined && item.Gamma === undefined && item.gamma_cpm === undefined)) {
-                        console.log('ℹ️ Gamma field not yet available in this record');
-                    }
-                    if ((emf === 0 || emf === null || emf === undefined) && 
-                        (item.EMF === undefined && item.EMF_mT === undefined && item.emf_mT === undefined && item.emf === undefined)) {
-                        console.log('ℹ️ EMF field not yet available in this record');
+                    if (voltage === 0 || voltage === null || voltage === undefined) {
+                        console.warn('⚠️ Voltage missing from Raspberry Pi:', { raw: item, mapped });
                     }
                     
                     return mapped;
