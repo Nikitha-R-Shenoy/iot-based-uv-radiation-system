@@ -116,10 +116,9 @@ export default function App({ database }) {
                     // Get all keys to check for case variations
                     const keys = Object.keys(item);
                     
-                    // Find UV field - check actual keys that exist (case-sensitive matching)
+                    // Find UV field - check actual keys that exist (case-insensitive matching)
                     // Try all possible variations of uv_intensity field names
                     let uv = null;
-                    const keys = Object.keys(item);
                     
                     // Check for uv_intensity variations (case-sensitive)
                     for (const key of keys) {
