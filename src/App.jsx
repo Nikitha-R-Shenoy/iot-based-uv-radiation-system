@@ -15,10 +15,14 @@ export default function App({ database }) {
     const [alertStatus, setAlertStatus] = useState("Awaiting Classification...");
 
     useEffect(() => {
+        console.log('🚀 App useEffect triggered, database:', database ? 'Connected' : 'Missing');
+        
         if (!database) {
             console.error("❌ Firebase database connection is missing.");
             return; 
         }
+        
+        console.log('✅ Database connection confirmed');
 
         // --- 1. Listener for Real-Time Alerts (Status Display) ---
         const alertsQuery = query(
@@ -48,13 +52,25 @@ export default function App({ database }) {
 
 
         // --- 2. Listener for Charts & Tables (Historical Data) ---
-        const readingsRef = ref(database, 'uvData'); 
+        // NOTE: Using 'classified-alerts' to match the alerts listener above
+        // If your data is in 'uvData' instead, change this path
+        const readingsRef = ref(database, 'classified-alerts'); 
+        
+        console.log('🔌 Setting up Firebase listener for classified-alerts...');
 
         const unsubscribeReadings = onValue(readingsRef, (snapshot) => {
             const data = snapshot.val();
+            console.log('📡 Firebase snapshot received:', data ? 'Data exists' : 'No data');
             
             if (data) {
                 const historicalReadings = Object.values(data);
+                console.log('📊 Total readings from Firebase:', historicalReadings.length);
+                
+                // DEBUG: Log raw Firebase data structure (first item only)
+                if (historicalReadings.length > 0) {
+                    console.log('📊 Raw Firebase data sample:', historicalReadings[0]);
+                    console.log('📊 Raw data keys:', Object.keys(historicalReadings[0]));
+                }
                 
                 // CRITICAL FIX: Map the data to match component expectations
                 // Handle both flat structure and nested sensors structure from Firebase
@@ -65,7 +81,7 @@ export default function App({ database }) {
                     const emf = item.EMF || item.EMF_mT || item.emf_mT || item.emf || (item.sensors && item.sensors.emf_mT) || 0;
                     const status = item.status || item.classification || 'UNKNOWN';
                     
-                    return {
+                    const mapped = {
                         // Timestamp in seconds (components will handle conversion if needed)
                         timestamp: item.timestamp || Date.now() / 1000,
                         // Use the keys that components expect
@@ -75,15 +91,32 @@ export default function App({ database }) {
                         classification: status.toLowerCase(),
                         status: status,
                     };
+                    
+                    // DEBUG: Log mapped data if any field is 0 or missing
+                    if (gamma === 0 || uv === 0 || emf === 0) {
+                        console.warn('⚠️ Missing field detected:', { raw: item, mapped });
+                    }
+                    
+                    return mapped;
                 });
                 
+                // DEBUG: Log final mapped readings
+                console.log('✅ Mapped readings count:', mappedReadings.length);
+                if (mappedReadings.length > 0) {
+                    console.log('📈 First mapped reading:', mappedReadings[0]);
+                }
+                
                 // Reverse and set the final data
+                console.log('💾 Setting readings state with', mappedReadings.length, 'items');
                 setReadings(mappedReadings.slice().reverse()); 
             } else {
+                console.warn('⚠️ No data received from Firebase - setting empty array');
                 setReadings([]);
             }
         }, (error) => {
             console.error("❌ Error reading readings data:", error);
+            console.error("❌ Error details:", error.message, error.code);
+            setReadings([]);
         });
 
 

@@ -1,15 +1,20 @@
 import React from 'react';
 
 export default function ReadingsTable({ readings = [] }) {
+  console.log('📋 ReadingsTable received readings:', readings.length, readings);
+  
   return (
     <div>
       <h3>Latest readings</h3>
-      <table>
-        <thead>
-          <tr><th>Time</th><th>Gamma</th><th>UV</th><th>EMF (mT)</th><th>Class</th></tr>
-        </thead>
-        <tbody>
-          {readings.map(r => {
+      {readings.length === 0 ? (
+        <p>No readings available. Waiting for data from Firebase...</p>
+      ) : (
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Gamma</th><th>UV</th><th>EMF (mT)</th><th>Class</th></tr>
+          </thead>
+          <tbody>
+            {readings.map(r => {
             const gamma = r.gamma_cpm ?? (r.sensors && r.sensors.gamma_cpm) ?? '-';
             const uv = r.uv_index ?? (r.sensors && r.sensors.uv_index) ?? '-';
             const emf = r.emf_mT ?? (r.sensors && r.sensors.emf_mT) ?? '-';
@@ -28,8 +33,9 @@ export default function ReadingsTable({ readings = [] }) {
               </tr>
             );
           })}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
