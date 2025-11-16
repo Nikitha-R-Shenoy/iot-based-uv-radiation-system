@@ -28,7 +28,14 @@ const firebaseConfig = {
 // This must happen before rendering the root component.
 const app = initializeApp(firebaseConfig);
 // CRITICAL: Get the database reference handle
-const database = getDatabase(app); 
+const database = getDatabase(app);
+
+// DEBUG: Log Firebase connection details
+console.log('🔥 Firebase initialized:', {
+    databaseURL: firebaseConfig.databaseURL,
+    projectId: firebaseConfig.projectId,
+    database: database ? 'Connected' : 'Failed'
+}); 
 // -----------------------------------------------
 
 

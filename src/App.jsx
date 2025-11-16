@@ -58,10 +58,16 @@ export default function App({ database }) {
         console.log('🔌 Setting up Firebase listener for uvData...');
 
         const unsubscribeReadings = onValue(readingsRef, (snapshot) => {
+            console.log('📡 Firebase onValue callback triggered');
+            console.log('📡 Snapshot exists:', snapshot.exists());
+            console.log('📡 Snapshot key:', snapshot.key);
+            
             const data = snapshot.val();
             console.log('📡 Firebase snapshot received:', data ? 'Data exists' : 'No data');
+            console.log('📡 Data type:', typeof data);
+            console.log('📡 Data value:', data);
             
-            if (data) {
+            if (data && typeof data === 'object') {
                 const historicalReadings = Object.values(data);
                 console.log('📊 Total readings from Firebase:', historicalReadings.length);
                 
@@ -131,7 +137,16 @@ export default function App({ database }) {
             }
         }, (error) => {
             console.error("❌ Error reading readings data:", error);
-            console.error("❌ Error details:", error.message, error.code);
+            console.error("❌ Error details:", error.message);
+            console.error("❌ Error code:", error.code);
+            console.error("❌ Error stack:", error.stack);
+            
+            // Check for common error types
+            if (error.code === 'PERMISSION_DENIED') {
+                console.error("🔒 PERMISSION DENIED: Check Firebase Realtime Database rules!");
+                console.error("🔒 Make sure rules allow read access to 'uvData' path");
+            }
+            
             setReadings([]);
         });
 
