@@ -72,16 +72,26 @@ export default function App({ database }) {
                 }
                 
                 // CRITICAL FIX: Map the data to match component expectations
-                // Handle both flat structure and nested sensors structure from Firebase
+                // Firebase structure: timestamp, uv_intensity_mw_cm2, voltage, gamma, EMF
                 const mappedReadings = historicalReadings.map(item => {
-                    // Extract sensor values - handle both flat and nested structures
-                    const gamma = item.gamma || item.Gamma || item.gamma_cpm || (item.sensors && item.sensors.gamma_cpm) || 0;
-                    const uv = item.uv || item.UV || item.uv_index || (item.sensors && item.sensors.uv_index) || 0;
-                    const emf = item.EMF || item.EMF_mT || item.emf_mT || item.emf || (item.sensors && item.sensors.emf_mT) || 0;
+                    // Extract sensor values - handle multiple field name variations
+                    // Gamma field variations
+                    const gamma = item.gamma || item.Gamma || item.gamma_cpm || 
+                                  (item.sensors && item.sensors.gamma_cpm) || 0;
+                    
+                    // UV field - handle both uv_intensity_mw_cm2 (from image) and other variations
+                    const uv = item.uv || item.UV || item.uv_index || item.uv_intensity_mw_cm2 ||
+                              (item.sensors && item.sensors.uv_index) || 0;
+                    
+                    // EMF field variations
+                    const emf = item.EMF || item.EMF_mT || item.emf_mT || item.emf ||
+                               (item.sensors && item.sensors.emf_mT) || 0;
+                    
+                    // Status/classification field
                     const status = item.status || item.classification || 'UNKNOWN';
                     
                     const mapped = {
-                        // Timestamp in seconds (components will handle conversion if needed)
+                        // Timestamp in seconds (Firebase stores Unix timestamp)
                         timestamp: item.timestamp || Date.now() / 1000,
                         // Use the keys that components expect
                         gamma_cpm: gamma,
@@ -89,9 +99,14 @@ export default function App({ database }) {
                         emf_mT: emf,
                         classification: status.toLowerCase(),
                         status: status,
+                        // Keep original data for debugging
+                        _raw: {
+                            voltage: item.voltage,
+                            uv_intensity_mw_cm2: item.uv_intensity_mw_cm2
+                        }
                     };
                     
-                    // DEBUG: Log mapped data if any field is 0 or missing
+                    // DEBUG: Log mapped data if any required field is 0 or missing
                     if (gamma === 0 || uv === 0 || emf === 0) {
                         console.warn('⚠️ Missing field detected:', { raw: item, mapped });
                     }
