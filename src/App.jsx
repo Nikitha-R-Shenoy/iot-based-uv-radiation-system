@@ -106,9 +106,18 @@ export default function App({ database }) {
                         }
                     };
                     
-                    // DEBUG: Log mapped data if any required field is 0 or missing
-                    if (gamma === 0 || uv === 0 || emf === 0) {
-                        console.warn('⚠️ Missing field detected:', { raw: item, mapped });
+                    // DEBUG: Log mapped data - UV should always be present from Raspberry Pi
+                    if (uv === 0 || uv === null || uv === undefined) {
+                        console.warn('⚠️ UV field missing from Raspberry Pi:', { raw: item, mapped });
+                    }
+                    // Gamma and EMF might not be sent yet - log info only
+                    if ((gamma === 0 || gamma === null || gamma === undefined) && 
+                        (item.gamma === undefined && item.Gamma === undefined && item.gamma_cpm === undefined)) {
+                        console.log('ℹ️ Gamma field not yet available in this record');
+                    }
+                    if ((emf === 0 || emf === null || emf === undefined) && 
+                        (item.EMF === undefined && item.EMF_mT === undefined && item.emf_mT === undefined && item.emf === undefined)) {
+                        console.log('ℹ️ EMF field not yet available in this record');
                     }
                     
                     return mapped;
