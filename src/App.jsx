@@ -67,8 +67,12 @@ export default function App({ database }) {
                 
                 // DEBUG: Log raw Firebase data structure (first item only)
                 if (historicalReadings.length > 0) {
-                    console.log('📊 Raw Firebase data sample:', historicalReadings[0]);
-                    console.log('📊 Raw data keys:', Object.keys(historicalReadings[0]));
+                    const firstItem = historicalReadings[0];
+                    console.log('📊 Raw Firebase data sample:', firstItem);
+                    console.log('📊 Raw data keys:', Object.keys(firstItem));
+                    console.log('📊 Looking for uv_intensity_mw_cm2:', firstItem.uv_intensity_mw_cm2);
+                    console.log('📊 Looking for voltage:', firstItem.voltage);
+                    console.log('📊 All field names in Firebase:', Object.keys(firstItem).join(', '));
                 }
                 
                 // Map only the values received from Raspberry Pi: timestamp, uv_intensity_mw_cm2, voltage
