@@ -16,10 +16,11 @@ export default function ReadingsTable({ readings = [] }) {
           <tbody>
             {readings.map(r => {
             // Display only values received from Raspberry Pi
+            // If value is null or undefined, show '-', otherwise format to 6 decimal places
             const uv = (r.uv_index !== undefined && r.uv_index !== null) ? 
-                      r.uv_index.toFixed(6) : '-';
+                      Number(r.uv_index).toFixed(6) : '-';
             const voltage = (r.voltage !== undefined && r.voltage !== null) ? 
-                           r.voltage.toFixed(6) : '-';
+                           Number(r.voltage).toFixed(6) : '-';
             // Handle timestamp in seconds or milliseconds
             const ts = typeof r.timestamp === 'number' ? (r.timestamp > 1e12 ? r.timestamp : r.timestamp * 1000) : r.timestamp;
             return (

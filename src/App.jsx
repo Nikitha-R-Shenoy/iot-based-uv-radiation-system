@@ -74,26 +74,39 @@ export default function App({ database }) {
                 // Map only the values received from Raspberry Pi: timestamp, uv_intensity_mw_cm2, voltage
                 const mappedReadings = historicalReadings.map(item => {
                     // UV Intensity from Raspberry Pi (uv_intensity_mw_cm2)
-                    const uv = item.uv_intensity_mw_cm2 || item.uv || item.UV || item.uv_index || 0;
+                    // Check explicitly for existence, not just truthiness (0 is a valid value)
+                    const uv = item.uv_intensity_mw_cm2 !== undefined ? item.uv_intensity_mw_cm2 :
+                              item.uv !== undefined ? item.uv :
+                              item.UV !== undefined ? item.UV :
+                              item.uv_index !== undefined ? item.uv_index :
+                              null;
                     
-                    // Voltage from Raspberry Pi
-                    const voltage = item.voltage || 0;
+                    // Voltage from Raspberry Pi - check explicitly
+                    const voltage = item.voltage !== undefined ? item.voltage : null;
                     
                     const mapped = {
                         // Timestamp in seconds (Firebase stores Unix timestamp)
                         timestamp: item.timestamp || Date.now() / 1000,
-                        // UV Intensity (mW/cm²) from Raspberry Pi
+                        // UV Intensity (mW/cm²) from Raspberry Pi (null if not found)
                         uv_index: uv,
-                        // Voltage from Raspberry Pi
+                        // Voltage from Raspberry Pi (null if not found)
                         voltage: voltage
                     };
                     
+                    // DEBUG: Log the raw item and what we extracted
+                    console.log('🔍 Mapping item:', {
+                        raw: item,
+                        extracted_uv: uv,
+                        extracted_voltage: voltage,
+                        mapped: mapped
+                    });
+                    
                     // DEBUG: Log if required fields are missing
-                    if (uv === 0 || uv === null || uv === undefined) {
-                        console.warn('⚠️ UV intensity missing from Raspberry Pi:', { raw: item, mapped });
+                    if (uv === null || uv === undefined) {
+                        console.warn('⚠️ UV intensity missing from Raspberry Pi - field not found in:', Object.keys(item));
                     }
-                    if (voltage === 0 || voltage === null || voltage === undefined) {
-                        console.warn('⚠️ Voltage missing from Raspberry Pi:', { raw: item, mapped });
+                    if (voltage === null || voltage === undefined) {
+                        console.warn('⚠️ Voltage missing from Raspberry Pi - field not found in:', Object.keys(item));
                     }
                     
                     return mapped;
