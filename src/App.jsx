@@ -68,47 +68,70 @@ export default function App({ database }) {
             console.log('📡 Data value:', data);
             
             if (data && typeof data === 'object') {
-                // Handle both structures:
-                // 1. Object with push IDs as keys: { "-abc123": {...}, "-def456": {...} }
-                // 2. Array of objects: [{...}, {...}]
-                // 3. Single object with fields: { timestamp: ..., uv_intensity_mw_cm2: ... }
+                // Handle Firebase Realtime Database structure
+                // Firebase stores data as: { "-pushId1": {...}, "-pushId2": {...} }
+                // OR as a single object: { timestamp: ..., uv_intensity_mw_cm2: ... }
                 
-                let historicalReadings;
+                let historicalReadings = [];
                 
-                // Check if data is an array
-                if (Array.isArray(data)) {
-                    historicalReadings = data;
-                } 
-                // Check if data has push-ID-like keys (starts with '-' or is alphanumeric)
-                else if (Object.keys(data).some(key => key.startsWith('-'))) {
-                    // Structure: { "-abc123": {...}, "-def456": {...} }
-                    historicalReadings = Object.values(data);
-                }
-                // Check if data is a single object with sensor fields
-                else if ('uv_intensity_mw_cm2' in data || 'uv_intensity_mW_cm2' in data || 'voltage' in data) {
-                    // Single object: wrap it in an array
-                    historicalReadings = [data];
-                }
-                // Fallback: treat as object with values
-                else {
-                    historicalReadings = Object.values(data);
+                try {
+                    // Check if data is an array
+                    if (Array.isArray(data)) {
+                        historicalReadings = data;
+                        console.log('📊 Data is an array');
+                    } 
+                    // Check if data has keys (object with multiple entries)
+                    else if (Object.keys(data).length > 0) {
+                        const firstKey = Object.keys(data)[0];
+                        const firstValue = data[firstKey];
+                        
+                        // If first value is an object with timestamp/uv/voltage, it's push IDs
+                        if (typeof firstValue === 'object' && firstValue !== null && 
+                            ('timestamp' in firstValue || 'uv_intensity_mw_cm2' in firstValue || 'uv_intensity_mW_cm2' in firstValue || 'voltage' in firstValue)) {
+                            // Structure: { "-abc123": {...}, "-def456": {...} }
+                            historicalReadings = Object.values(data);
+                            console.log('📊 Data is object with push IDs, extracted', historicalReadings.length, 'readings');
+                        }
+                        // If data itself has sensor fields, it's a single reading
+                        else if ('timestamp' in data || 'uv_intensity_mw_cm2' in data || 'uv_intensity_mW_cm2' in data || 'voltage' in data) {
+                            historicalReadings = [data];
+                            console.log('📊 Data is a single reading object');
+                        }
+                        // Fallback: try Object.values anyway
+                        else {
+                            historicalReadings = Object.values(data).filter(item => item && typeof item === 'object');
+                            console.log('📊 Using fallback: extracted', historicalReadings.length, 'readings from object values');
+                        }
+                    }
+                    
+                    console.log('📊 Total readings extracted:', historicalReadings.length);
+                    console.log('📊 Data keys:', Object.keys(data).slice(0, 5).join(', '));
+                } catch (error) {
+                    console.error('❌ Error processing Firebase data structure:', error);
+                    console.error('❌ Data:', data);
+                    setReadings([]);
+                    return;
                 }
                 
-                console.log('📊 Total readings from Firebase:', historicalReadings.length);
-                console.log('📊 Data structure type:', Array.isArray(data) ? 'Array' : 'Object with keys: ' + Object.keys(data).slice(0, 3).join(', '));
+                // Check if we got any readings
+                if (historicalReadings.length === 0) {
+                    console.warn('⚠️ No readings extracted from Firebase data');
+                    console.warn('⚠️ Data structure:', data);
+                    console.warn('⚠️ Data keys:', Object.keys(data || {}));
+                    setReadings([]);
+                    return;
+                }
                 
                 // DEBUG: Log raw Firebase data structure (first item only)
-                if (historicalReadings.length > 0) {
-                    const firstItem = historicalReadings[0];
-                    console.log('📊 Raw Firebase data sample:', firstItem);
-                    console.log('📊 Raw data keys:', Object.keys(firstItem));
-                    console.log('📊 All field names in Firebase:', Object.keys(firstItem).join(', '));
-                    
-                    // Try all variations
-                    console.log('📊 Checking uv_intensity_mw_cm2:', firstItem.uv_intensity_mw_cm2);
-                    console.log('📊 Checking uv_intensity_mW_cm2:', firstItem.uv_intensity_mW_cm2);
-                    console.log('📊 Checking voltage:', firstItem.voltage);
-                }
+                const firstItem = historicalReadings[0];
+                console.log('📊 Raw Firebase data sample:', firstItem);
+                console.log('📊 Raw data keys:', Object.keys(firstItem));
+                console.log('📊 All field names in Firebase:', Object.keys(firstItem).join(', '));
+                
+                // Try all variations
+                console.log('📊 Checking uv_intensity_mw_cm2:', firstItem.uv_intensity_mw_cm2);
+                console.log('📊 Checking uv_intensity_mW_cm2:', firstItem.uv_intensity_mW_cm2);
+                console.log('📊 Checking voltage:', firstItem.voltage);
                 
                 // Map only the values received from Raspberry Pi: timestamp, uv_intensity_mw_cm2, voltage
                 // CRITICAL: Check for case variations (uv_intensity_mw_cm2 vs uv_intensity_mW_cm2)
