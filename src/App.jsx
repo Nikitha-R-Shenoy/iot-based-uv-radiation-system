@@ -52,11 +52,10 @@ export default function App({ database }) {
 
 
         // --- 2. Listener for Charts & Tables (Historical Data) ---
-        // NOTE: Using 'classified-alerts' to match the alerts listener above
-        // If your data is in 'uvData' instead, change this path
-        const readingsRef = ref(database, 'classified-alerts'); 
+        // Data is stored in 'uvData' path in Firebase
+        const readingsRef = ref(database, 'uvData'); 
         
-        console.log('🔌 Setting up Firebase listener for classified-alerts...');
+        console.log('🔌 Setting up Firebase listener for uvData...');
 
         const unsubscribeReadings = onValue(readingsRef, (snapshot) => {
             const data = snapshot.val();
