@@ -58,151 +58,56 @@ export default function App({ database }) {
         console.log('🔌 Setting up Firebase listener for uvData...');
 
         const unsubscribeReadings = onValue(readingsRef, (snapshot) => {
-            console.log('📡 Firebase onValue callback triggered');
-            console.log('📡 Snapshot exists:', snapshot.exists());
-            console.log('📡 Snapshot key:', snapshot.key);
-            
             const data = snapshot.val();
-            console.log('📡 Firebase snapshot received:', data ? 'Data exists' : 'No data');
-            console.log('📡 Data type:', typeof data);
-            console.log('📡 Data value:', data);
             
-            if (data && typeof data === 'object') {
-                // Handle Firebase Realtime Database structure
-                // Firebase stores data as: { "-pushId1": {...}, "-pushId2": {...} }
-                // OR as a single object: { timestamp: ..., uv_intensity_mw_cm2: ... }
-                
-                let historicalReadings = [];
-                
-                try {
-                    // Check if data is an array
-                    if (Array.isArray(data)) {
-                        historicalReadings = data;
-                        console.log('📊 Data is an array');
-                    } 
-                    // Check if data has keys (object with multiple entries)
-                    else if (Object.keys(data).length > 0) {
-                        const firstKey = Object.keys(data)[0];
-                        const firstValue = data[firstKey];
-                        
-                        // If first value is an object with timestamp/uv/voltage, it's push IDs
-                        if (typeof firstValue === 'object' && firstValue !== null && 
-                            ('timestamp' in firstValue || 'uv_intensity_mw_cm2' in firstValue || 'uv_intensity_mW_cm2' in firstValue || 'voltage' in firstValue)) {
-                            // Structure: { "-abc123": {...}, "-def456": {...} }
-                            historicalReadings = Object.values(data);
-                            console.log('📊 Data is object with push IDs, extracted', historicalReadings.length, 'readings');
-                        }
-                        // If data itself has sensor fields, it's a single reading
-                        else if ('timestamp' in data || 'uv_intensity_mw_cm2' in data || 'uv_intensity_mW_cm2' in data || 'voltage' in data) {
-                            historicalReadings = [data];
-                            console.log('📊 Data is a single reading object');
-                        }
-                        // Fallback: try Object.values anyway
-                        else {
-                            historicalReadings = Object.values(data).filter(item => item && typeof item === 'object');
-                            console.log('📊 Using fallback: extracted', historicalReadings.length, 'readings from object values');
-                        }
-                    }
-                    
-                    console.log('📊 Total readings extracted:', historicalReadings.length);
-                    console.log('📊 Data keys:', Object.keys(data).slice(0, 5).join(', '));
-                } catch (error) {
-                    console.error('❌ Error processing Firebase data structure:', error);
-                    console.error('❌ Data:', data);
-                    setReadings([]);
-                    return;
-                }
-                
-                // Check if we got any readings
-                if (historicalReadings.length === 0) {
-                    console.warn('⚠️ No readings extracted from Firebase data');
-                    console.warn('⚠️ Data structure:', data);
-                    console.warn('⚠️ Data keys:', Object.keys(data || {}));
-                    setReadings([]);
-                    return;
-                }
-                
-                // DEBUG: Log raw Firebase data structure (first item only)
-                const firstItem = historicalReadings[0];
-                console.log('📊 Raw Firebase data sample:', firstItem);
-                console.log('📊 Raw data keys:', Object.keys(firstItem));
-                console.log('📊 All field names in Firebase:', Object.keys(firstItem).join(', '));
-                
-                // Try all variations
-                console.log('📊 Checking uv_intensity_mw_cm2:', firstItem.uv_intensity_mw_cm2);
-                console.log('📊 Checking uv_intensity_mW_cm2:', firstItem.uv_intensity_mW_cm2);
-                console.log('📊 Checking voltage:', firstItem.voltage);
-                
-                // Map only the values received from Raspberry Pi: timestamp, uv_intensity_mw_cm2, voltage
-                // CRITICAL: Check for case variations (uv_intensity_mw_cm2 vs uv_intensity_mW_cm2)
-                const mappedReadings = historicalReadings.map((item, index) => {
-                    // Get all keys to check for case variations
-                    const keys = Object.keys(item);
-                    
-                    // Find UV field - check actual keys that exist (case-insensitive matching)
-                    // Try all possible variations of uv_intensity field names
-                    let uv = null;
-                    
-                    // Check for uv_intensity variations (case-sensitive)
-                    for (const key of keys) {
-                        const lowerKey = key.toLowerCase();
-                        if (lowerKey.includes('uv_intensity') || lowerKey === 'uv' || lowerKey === 'uv_index') {
-                            uv = item[key];
-                            break; // Found it, stop searching
-                        }
-                    }
-                    
-                    // Voltage - straightforward (exact match)
-                    const voltage = 'voltage' in item ? item.voltage : null;
-                    
-                    // Timestamp - handle both Unix timestamp and other formats
-                    let timestamp = item.timestamp;
-                    if (!timestamp) {
-                        timestamp = Date.now() / 1000; // Fallback to current time
-                    }
-                    
-                    const mapped = {
-                        timestamp: timestamp,
-                        uv_index: uv,
-                        voltage: voltage
-                    };
-                    
-                    // Log only first few items and errors to reduce console spam
-                    if (index < 3) {
-                        console.log(`🔍 Item ${index}:`, {
-                            keys: keys,
-                            found_uv: uv,
-                            found_voltage: voltage,
-                            mapped: mapped
-                        });
-                    }
-                    
-                    // Warn only if critical fields are missing (for first item only)
-                    if (index === 0) {
-                        if (uv === null || uv === undefined) {
-                            console.error('❌ UV intensity NOT FOUND! Available keys:', keys.join(', '));
-                        }
-                        if (voltage === null || voltage === undefined) {
-                            console.error('❌ Voltage NOT FOUND! Available keys:', keys.join(', '));
-                        }
-                    }
-                    
-                    return mapped;
-                });
-                
-                // DEBUG: Log final mapped readings
-                console.log('✅ Mapped readings count:', mappedReadings.length);
-                if (mappedReadings.length > 0) {
-                    console.log('📈 First mapped reading:', mappedReadings[0]);
-                }
-                
-                // Reverse and set the final data
-                console.log('💾 Setting readings state with', mappedReadings.length, 'items');
-                setReadings(mappedReadings.slice().reverse()); 
-            } else {
-                console.warn('⚠️ No data received from Firebase - setting empty array');
+            if (!data) {
+                console.log('📡 No data in Firebase snapshot');
                 setReadings([]);
+                return;
             }
+            
+            // Firebase structure: { "-pushId1": {...}, "-pushId2": {...} }
+            // Simply get all values - Firebase push IDs as keys
+            const readingsArray = Object.values(data);
+            
+            if (readingsArray.length === 0) {
+                console.log('📡 Firebase data is empty object');
+                setReadings([]);
+                return;
+            }
+            
+            // Map to component format - SIMPLE AND DIRECT
+            const mappedReadings = readingsArray.map(item => {
+                // Get the actual field names that exist (handle any case)
+                const keys = Object.keys(item);
+                
+                // Find UV field - check lowercase for flexibility
+                let uv = null;
+                for (const key of keys) {
+                    const lower = key.toLowerCase();
+                    if (lower.includes('uv_intensity')) {
+                        uv = item[key];
+                        break;
+                    }
+                }
+                
+                // Voltage - exact match
+                const voltage = item.voltage || null;
+                
+                // Timestamp
+                const timestamp = item.timestamp || Date.now() / 1000;
+                
+                return {
+                    timestamp,
+                    uv_index: uv,
+                    voltage
+                };
+            });
+            
+            // Reverse to show newest first
+            setReadings(mappedReadings.reverse());
+            
+            console.log('✅ Loaded', mappedReadings.length, 'readings from Firebase');
         }, (error) => {
             console.error("❌ Error reading readings data:", error);
             console.error("❌ Error details:", error.message);
