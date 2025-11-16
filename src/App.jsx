@@ -68,55 +68,101 @@ export default function App({ database }) {
             console.log('📡 Data value:', data);
             
             if (data && typeof data === 'object') {
-                const historicalReadings = Object.values(data);
+                // Handle both structures:
+                // 1. Object with push IDs as keys: { "-abc123": {...}, "-def456": {...} }
+                // 2. Array of objects: [{...}, {...}]
+                // 3. Single object with fields: { timestamp: ..., uv_intensity_mw_cm2: ... }
+                
+                let historicalReadings;
+                
+                // Check if data is an array
+                if (Array.isArray(data)) {
+                    historicalReadings = data;
+                } 
+                // Check if data has push-ID-like keys (starts with '-' or is alphanumeric)
+                else if (Object.keys(data).some(key => key.startsWith('-'))) {
+                    // Structure: { "-abc123": {...}, "-def456": {...} }
+                    historicalReadings = Object.values(data);
+                }
+                // Check if data is a single object with sensor fields
+                else if ('uv_intensity_mw_cm2' in data || 'uv_intensity_mW_cm2' in data || 'voltage' in data) {
+                    // Single object: wrap it in an array
+                    historicalReadings = [data];
+                }
+                // Fallback: treat as object with values
+                else {
+                    historicalReadings = Object.values(data);
+                }
+                
                 console.log('📊 Total readings from Firebase:', historicalReadings.length);
+                console.log('📊 Data structure type:', Array.isArray(data) ? 'Array' : 'Object with keys: ' + Object.keys(data).slice(0, 3).join(', '));
                 
                 // DEBUG: Log raw Firebase data structure (first item only)
                 if (historicalReadings.length > 0) {
                     const firstItem = historicalReadings[0];
                     console.log('📊 Raw Firebase data sample:', firstItem);
                     console.log('📊 Raw data keys:', Object.keys(firstItem));
-                    console.log('📊 Looking for uv_intensity_mw_cm2:', firstItem.uv_intensity_mw_cm2);
-                    console.log('📊 Looking for voltage:', firstItem.voltage);
                     console.log('📊 All field names in Firebase:', Object.keys(firstItem).join(', '));
+                    
+                    // Try all variations
+                    console.log('📊 Checking uv_intensity_mw_cm2:', firstItem.uv_intensity_mw_cm2);
+                    console.log('📊 Checking uv_intensity_mW_cm2:', firstItem.uv_intensity_mW_cm2);
+                    console.log('📊 Checking voltage:', firstItem.voltage);
                 }
                 
                 // Map only the values received from Raspberry Pi: timestamp, uv_intensity_mw_cm2, voltage
-                const mappedReadings = historicalReadings.map(item => {
-                    // UV Intensity from Raspberry Pi (uv_intensity_mw_cm2)
-                    // Check explicitly for existence, not just truthiness (0 is a valid value)
-                    const uv = item.uv_intensity_mw_cm2 !== undefined ? item.uv_intensity_mw_cm2 :
-                              item.uv !== undefined ? item.uv :
-                              item.UV !== undefined ? item.UV :
-                              item.uv_index !== undefined ? item.uv_index :
-                              null;
+                // CRITICAL: Check for case variations (uv_intensity_mw_cm2 vs uv_intensity_mW_cm2)
+                const mappedReadings = historicalReadings.map((item, index) => {
+                    // Get all keys to check for case variations
+                    const keys = Object.keys(item);
                     
-                    // Voltage from Raspberry Pi - check explicitly
-                    const voltage = item.voltage !== undefined ? item.voltage : null;
+                    // Find UV field - check actual keys that exist (case-sensitive matching)
+                    // Try all possible variations of uv_intensity field names
+                    let uv = null;
+                    const keys = Object.keys(item);
+                    
+                    // Check for uv_intensity variations (case-sensitive)
+                    for (const key of keys) {
+                        const lowerKey = key.toLowerCase();
+                        if (lowerKey.includes('uv_intensity') || lowerKey === 'uv' || lowerKey === 'uv_index') {
+                            uv = item[key];
+                            break; // Found it, stop searching
+                        }
+                    }
+                    
+                    // Voltage - straightforward (exact match)
+                    const voltage = 'voltage' in item ? item.voltage : null;
+                    
+                    // Timestamp - handle both Unix timestamp and other formats
+                    let timestamp = item.timestamp;
+                    if (!timestamp) {
+                        timestamp = Date.now() / 1000; // Fallback to current time
+                    }
                     
                     const mapped = {
-                        // Timestamp in seconds (Firebase stores Unix timestamp)
-                        timestamp: item.timestamp || Date.now() / 1000,
-                        // UV Intensity (mW/cm²) from Raspberry Pi (null if not found)
+                        timestamp: timestamp,
                         uv_index: uv,
-                        // Voltage from Raspberry Pi (null if not found)
                         voltage: voltage
                     };
                     
-                    // DEBUG: Log the raw item and what we extracted
-                    console.log('🔍 Mapping item:', {
-                        raw: item,
-                        extracted_uv: uv,
-                        extracted_voltage: voltage,
-                        mapped: mapped
-                    });
-                    
-                    // DEBUG: Log if required fields are missing
-                    if (uv === null || uv === undefined) {
-                        console.warn('⚠️ UV intensity missing from Raspberry Pi - field not found in:', Object.keys(item));
+                    // Log only first few items and errors to reduce console spam
+                    if (index < 3) {
+                        console.log(`🔍 Item ${index}:`, {
+                            keys: keys,
+                            found_uv: uv,
+                            found_voltage: voltage,
+                            mapped: mapped
+                        });
                     }
-                    if (voltage === null || voltage === undefined) {
-                        console.warn('⚠️ Voltage missing from Raspberry Pi - field not found in:', Object.keys(item));
+                    
+                    // Warn only if critical fields are missing (for first item only)
+                    if (index === 0) {
+                        if (uv === null || uv === undefined) {
+                            console.error('❌ UV intensity NOT FOUND! Available keys:', keys.join(', '));
+                        }
+                        if (voltage === null || voltage === undefined) {
+                            console.error('❌ Voltage NOT FOUND! Available keys:', keys.join(', '));
+                        }
                     }
                     
                     return mapped;
